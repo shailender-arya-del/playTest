@@ -3,7 +3,6 @@ package controllers;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
@@ -14,20 +13,21 @@ import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
+
 import play.Configuration;
 import play.libs.ws.WSClient;
 import play.libs.ws.WSRequest;
 import play.libs.ws.WSResponse;
 import play.mvc.Controller;
 import play.mvc.Result;
-import play.mvc.Http.RequestBody;
 import scala.concurrent.ExecutionContextExecutor;
 import akka.actor.ActorSystem;
 import akka.actor.Scheduler;
 
 import com.delhivery.cache.ECMemCache;
-import com.delhivery.dependencies.ep.RequestResponse.*;
-import com.delhivery.utils.AsyncUtils;
+import com.delhivery.dependencies.ep.RequestResponse.ExpathRequest;
+import com.delhivery.dependencies.ep.RequestResponse.ExpathResponse;
+import com.delhivery.dependencies.ep.RequestResponse.TimeSlotWithPrice;
 import com.delhivery.utils.Utils;
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -63,21 +63,23 @@ public class AsyncController extends Controller {
     this.exec = exec;
   }
 
-  public Result exPath() throws IOException{
+  public Result exPath() throws IOException {
     JsonNode input = request().body().asJson();
     ExpathRequest req = Utils.json2Object(ExpathRequest.class, input);
-      ExpathResponse resp = new ExpathResponse();
-      resp.setOriginCode(req.getOriginCode());
-      resp.setDestCode(req.getDestCode());
-      resp.setProductType(req.getProductType());
-      resp.setServiceType(req.getServiceType());
-      List<TimeSlotWithPrice> timePriceSlots = new ArrayList<>();
-      timePriceSlots.add(new TimeSlotWithPrice("0","1","4"));
-      timePriceSlots.add(new TimeSlotWithPrice("3","4","5"));
-      resp.setPriceTimeSlots(timePriceSlots);
-      System.out.println("Json of dummy data = " + Utils.Object2Json(resp));
-      return ok(Utils.Object2Json(resp));
+    ExpathResponse resp = new ExpathResponse();
+    resp.setOriginCode(req.getOriginCode());
+    resp.setDestCode(req.getDestCode());
+    resp.setProductType(req.getProductType());
+    resp.setServiceType(req.getServiceType());
+    resp.setTat(req.getTat());
+    List<TimeSlotWithPrice> timePriceSlots = new ArrayList<>();
+    timePriceSlots.add(new TimeSlotWithPrice("0", "1", "4"));
+    timePriceSlots.add(new TimeSlotWithPrice("3", "4", "5"));
+    resp.setPriceTimeSlots(timePriceSlots.toArray(new TimeSlotWithPrice[2]));
+//    System.out.println("Json of dummy data = " + Utils.Object2Json(resp));
+    return ok(Utils.Object2Json(resp));
   }
+
   /**
    * An action that returns a plain text message after a delay of 1 second.
    *
@@ -94,7 +96,6 @@ public class AsyncController extends Controller {
   private CompletionStage<JsonNode> getFutureMessage(long time,
           TimeUnit timeUnit) {
     System.out.println("configuration = " + configuration.getNumber("asdf"));
-    CompletableFuture<String> future = new CompletableFuture<>();
 
     ExecutorService es = Executors.newWorkStealingPool();
 

@@ -13,26 +13,38 @@ import play.libs.ws.WSClient;
 import play.libs.ws.WSRequest;
 import play.libs.ws.WSResponse;
 
-import com.delhivery.constants.ProductCategories;
-import com.delhivery.constants.ServiceCategories;
+import com.delhivery.constants.ProductCategory;
+import com.delhivery.constants.ServiceCategory;
 import com.delhivery.constants.Tat;
 import com.delhivery.dependencies.ep.Expath;
 import com.delhivery.dependencies.ep.RequestResponse.ExpathRequest;
 import com.delhivery.dependencies.ep.RequestResponse.ExpathResponse;
 import com.delhivery.utils.Utils;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.google.inject.Singleton;
 
+@Singleton
 public class ExpathImpl implements Expath {
 
-  @Inject
-  private static Configuration configuration;
-  @Inject
-  private WSClient ws;
-  private static final String END_POINT = configuration.getString("Expath.url");
-  private static final String PORT = configuration.getString("Expath.port");
+  private Configuration configuration;
+  private final WSClient ws;
+  private final String END_POINT ;//= configuration.getString("Expath.url");
+  private final Integer PORT;
 
+  @Inject
+  public ExpathImpl(WSClient ws, Configuration configuration){
+    this.configuration = configuration;
+    this.ws = ws;
+    END_POINT = configuration.getString("Expath.url");
+    PORT = (Integer) configuration.getNumber("Expath.port");
+  }
   public CompletableFuture<ExpathResponse> getPricePerTimeslots(
           ExpathRequest req) {
-    WSRequest wsRequest = ws.url(END_POINT + ":" + PORT).setRequestTimeout(50)
+
+    System.out.println("endPoint ==" + END_POINT + " port = " + PORT);
+    WSRequest wsRequest = ws
+            .url("http://" + END_POINT + ":" + PORT + "/expath")
+            .setRequestTimeout(50)
             .setHeader("Content-Type", "application/json");
     return wsRequest.post(Utils.Object2Json(req))
             .thenApply(ExpathImpl::parseEPResponse).exceptionally(e -> {
@@ -44,11 +56,16 @@ public class ExpathImpl implements Expath {
 
   private static ExpathResponse parseEPResponse(WSResponse wsResp) {
     ExpathResponse exResp = null;
-    if (!Utils.isStatusOK(wsResp.getStatus())) { throw new RuntimeException(
-            "Bad response from EP"); }
+    if (!Utils.isStatusOK(wsResp.getStatus())) {
+      System.out.println("Bad Response From EP");
+      throw new RuntimeException("Bad response from EP");
+    }
     try {
-      exResp = Utils.json2Object(ExpathResponse.class, wsResp.asJson());
+      JsonNode json =  wsResp.asJson();
+      System.out.println("Json Received = " + json);
+      exResp = Utils.json2Object(ExpathResponse.class,json);
     } catch (IOException e) {
+      e.printStackTrace();
       System.out.println("Exception while converting to ");
     }
     return exResp;
@@ -58,8 +75,8 @@ public class ExpathImpl implements Expath {
           String dest) {
     List<CompletableFuture<ExpathResponse>> allServices = new ArrayList<>();
 
-    for (ProductCategories prodCat : ProductCategories.values()) {
-      for (ServiceCategories serviceCat : ServiceCategories.values()) {
+    for (ProductCategory prodCat : ProductCategory.values()) {
+      for (ServiceCategory serviceCat : ServiceCategory.values()) {
         for (Tat tat : Tat.values()) {
           ExpathRequest req = getRequest(origin, dest, prodCat, serviceCat, tat);
           allServices.add(getPricePerTimeslots(req));
@@ -71,7 +88,7 @@ public class ExpathImpl implements Expath {
   }
 
   private ExpathRequest getRequest(String origin, String dest,
-          ProductCategories prodCat, ServiceCategories serviceCat, Tat tat) {
+          ProductCategory prodCat, ServiceCategory serviceCat, Tat tat) {
     ExpathRequest req = new ExpathRequest();
     req.setOriginCode(origin);
     req.setStartTime("0");
